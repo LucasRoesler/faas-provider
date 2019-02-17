@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/openfaas/faas-provider/httputils"
 )
@@ -38,15 +41,13 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 			return
 		}
 
-		logRequest := Request{}
-		err := json.NewDecoder(r.Body).Decode(&logRequest)
+		logRequest, err := parseRequest(r)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			httputils.WriteError(w, http.StatusUnprocessableEntity, "could not parse the log request")
 			return
 		}
 
-		// magic here
 		ctx, cancelQuery := context.WithCancel(r.Context())
 		defer cancelQuery()
 		messages, err := requestor.Query(ctx, logRequest)
@@ -102,4 +103,55 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 
 		return
 	}
+}
+
+// parseRequest extracts the logRequest from the GET variables or from the POST body
+func parseRequest(r *http.Request) (logRequest Request, err error) {
+	switch r.Method {
+	case http.MethodGet:
+		query := r.URL.Query()
+		logRequest.Name = getValue(query, "name")
+		logRequest.Instance = getValue(query, "instance")
+		limitStr := getValue(query, "limit")
+		if limitStr != "" {
+			logRequest.Limit, err = strconv.Atoi(limitStr)
+			if err != nil {
+				return logRequest, err
+			}
+		}
+		// ignore error because it will default to false if we can't parse it
+		logRequest.Follow, _ = strconv.ParseBool(getValue(query, "follow"))
+		logRequest.Invert, _ = strconv.ParseBool(getValue(query, "invert"))
+
+		sinceStr := getValue(query, "since")
+		if sinceStr != "" {
+			since, err := time.Parse(time.RFC3339, sinceStr)
+			logRequest.Since = &since
+			if err != nil {
+				return logRequest, err
+			}
+		}
+
+		// don't use getValue here so that we can detect if the value is nil or empty
+		patterns := query["pattern"]
+		if len(patterns) > 0 {
+			logRequest.Pattern = &(patterns[len(patterns)-1])
+		}
+
+	case http.MethodPost:
+		err = json.NewDecoder(r.Body).Decode(&logRequest)
+	}
+
+	return logRequest, err
+}
+
+// getValue returns the value for the given key. If the key has more than one value, it returns the
+// last value. if the value does not exist, it returns the empty string.
+func getValue(queryValues url.Values, name string) string {
+	values := queryValues[name]
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[len(values)-1]
 }
