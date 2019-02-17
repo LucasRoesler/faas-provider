@@ -32,6 +32,16 @@ type Request struct {
 	Invert bool `json:"invert"`
 }
 
+// String implements that Stringer interface and prints the log Request in a consistent way that
+// allows you to safely compare if two requests have the same value.
+func (r Request) String() string {
+	pattern := ""
+	if r.Pattern != nil {
+		pattern = *r.Pattern
+	}
+	return fmt.Sprintf("name:%s instance:%s since:%v limit:%d follow:%v pattern:%v invert:%v", r.Name, r.Instance, r.Since, r.Limit, r.Follow, pattern, r.Invert)
+}
+
 // Message is a specific log message from a function container log stream
 type Message struct {
 	// Name is the function name
@@ -44,6 +54,7 @@ type Message struct {
 	Text string `json:"text"`
 }
 
+// String implements the Stringer interface and allows for nice and simple string formatting of a log Message.
 func (m Message) String() string {
 	return fmt.Sprintf("%s %s (%s) %s", m.Timestamp.String(), m.Name, m.Instance, m.Text)
 }
