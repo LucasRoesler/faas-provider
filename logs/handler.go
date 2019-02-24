@@ -66,6 +66,10 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 		sent := 0
 		jsonEncoder := json.NewEncoder(w)
 
+		if logRequest.Limit > 0 {
+			log.Printf("LogHandler: watch for and stream `%d` log messages\n", logRequest.Limit)
+		}
+
 		for messages != nil {
 			select {
 			case <-cn.CloseNotify():
@@ -94,9 +98,12 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 
 				flusher.Flush()
 
-				sent++
-				if logRequest.Limit > 0 && sent >= logRequest.Limit {
-					return
+				if logRequest.Limit > 0 {
+					sent++
+					if sent >= logRequest.Limit {
+						log.Printf("LogHandler: reached message limit '%d'\n", logRequest.Limit)
+						return
+					}
 				}
 			}
 		}
