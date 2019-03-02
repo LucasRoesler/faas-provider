@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -15,8 +16,6 @@ import (
 // Requestor submits queries the logging system.
 // This will be passed to the log handler constructor.
 type Requestor interface {
-	// Filter allows the log handler to provide additional server side filtering of Messages.
-	Filter(Request, Message) bool
 	// Query submits a log request to the actual logging system.
 	Query(context.Context, Request) (<-chan Message, error)
 }
@@ -58,6 +57,7 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 		}
 
 		// Send the initial headers saying we're gonna stream the response.
+		w.Header().Set("Connection", "Keep-Alive")
 		w.Header().Set("Transfer-Encoding", "chunked")
 		w.Header().Set(http.CanonicalHeaderKey("Content-Type"), "application/x-ndjson")
 		w.WriteHeader(http.StatusOK)
@@ -70,6 +70,8 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 			log.Printf("LogHandler: watch for and stream `%d` log messages\n", logRequest.Limit)
 		}
 
+		msgFilter := newFilter(logRequest)
+
 		for messages != nil {
 			select {
 			case <-cn.CloseNotify():
@@ -81,8 +83,8 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 					messages = nil
 					return
 				}
-				// maybe skip the filtering here and require the Query method to handle all of the filtering?
-				if !requestor.Filter(logRequest, msg) {
+
+				if !msgFilter(&msg) {
 					continue
 				}
 				// serialize and write the msg to the http ResponseWriter
@@ -91,6 +93,7 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 					// can't actually write the status header here so we should json serialize an error
 					// and return that because we have already sent the content type and status code
 					log.Printf("LogHandler: failed to serialize log message: '%s'\n", msg.String())
+					log.Println(err.Error())
 					// write json error message here ?
 					jsonEncoder.Encode(Message{Text: "failed to serialize log message"})
 					return
@@ -161,4 +164,37 @@ func getValue(queryValues url.Values, name string) string {
 	}
 
 	return values[len(values)-1]
+}
+
+// Filter implements the filter logic for the Requestor interface
+func newFilter(r Request) func(m *Message) bool {
+
+	var pattern *regexp.Regexp
+	if r.Pattern != nil {
+		var err error
+		pattern, err = regexp.Compile(*r.Pattern)
+		if err != nil {
+			log.Printf("LogRequestor: failed to compile request Pattern: %s", err.Error())
+		}
+	}
+
+	return func(m *Message) bool {
+		return matchesInstance(r.Instance, m) && matchesPattern(pattern, m)
+	}
+}
+
+func matchesInstance(instance string, m *Message) bool {
+	if instance == "" {
+		return true
+	}
+
+	return instance == m.Instance
+}
+
+func matchesPattern(r *regexp.Regexp, m *Message) bool {
+	if r == nil {
+		return true
+	}
+
+	return r.MatchString(m.Text)
 }
