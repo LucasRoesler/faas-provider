@@ -26,8 +26,8 @@ type Requestor interface {
 	Query(context.Context, Request) (<-chan Message, error)
 }
 
-// NewLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
-func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+// NewSimpleLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
+func NewSimpleLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -121,8 +121,8 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 	}
 }
 
-// NewHijackLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
-func NewHijackLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+// NewLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
+func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
