@@ -10,8 +10,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/openfaas/faas-provider/httputils"
 )
+
+var upgrader = websocket.Upgrader{} // use default options
 
 // Requestor submits queries the logging system.
 // This will be passed to the log handler constructor.
@@ -100,6 +104,84 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 				}
 
 				flusher.Flush()
+
+				if logRequest.Limit > 0 {
+					sent++
+					if sent >= logRequest.Limit {
+						log.Printf("LogHandler: reached message limit '%d'\n", logRequest.Limit)
+						return
+					}
+				}
+			}
+		}
+
+		return
+	}
+}
+
+// NewWSLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
+func NewWSLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			defer r.Body.Close()
+		}
+
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Println("LogHandler: unable to upgrade response to a websocket")
+			http.NotFound(w, r)
+			return
+		}
+		defer c.Close()
+
+		logRequest, err := parseRequest(r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			httputils.WriteError(w, http.StatusUnprocessableEntity, "could not parse the log request")
+			return
+		}
+
+		ctx, cancelQuery := context.WithCancel(r.Context())
+		defer cancelQuery()
+		messages, err := requestor.Query(ctx, logRequest)
+		if err != nil {
+			// add smarter error handling here
+			httputils.WriteError(w, http.StatusInternalServerError, "function log request failed")
+			return
+		}
+
+		sent := 0
+
+		if logRequest.Limit > 0 {
+			log.Printf("LogHandler: watch for and stream `%d` log messages\n", logRequest.Limit)
+		}
+
+		msgFilter := newFilter(logRequest)
+
+		for messages != nil {
+			select {
+			case msg, ok := <-messages:
+				if !ok {
+					log.Println("LogHandler: end of log stream")
+					messages = nil
+					return
+				}
+
+				if !msgFilter(&msg) {
+					continue
+				}
+
+				// serialize and write the msg to the http ResponseWriter
+				err := c.WriteJSON(msg)
+				if err != nil {
+					// can't actually write the status header here so we should json serialize an error
+					// and return that because we have already sent the content type and status code
+					log.Printf("LogHandler: failed to serialize log message: '%s'\n", msg.String())
+					log.Println(err.Error())
+					// write json error message here ?
+					c.WriteJSON(Message{Text: "failed to serialize log message"})
+					return
+				}
 
 				if logRequest.Limit > 0 {
 					sent++
