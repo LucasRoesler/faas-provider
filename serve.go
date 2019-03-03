@@ -4,9 +4,13 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/openfaas/faas-provider/auth"
@@ -60,7 +64,7 @@ func Serve(handlers *types.FaaSHandlers, config *types.FaaSConfig) {
 	r.HandleFunc("/system/info", handlers.InfoHandler).Methods("GET")
 
 	r.HandleFunc("/system/secrets", handlers.SecretHandler).Methods(http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete)
-	r.HandleFunc("/system/logs", handlers.LogHandler).Methods(http.MethodGet, http.MethodPost)
+	// r.HandleFunc("/system/logs", handlers.LogHandler).Methods(http.MethodGet, http.MethodPost)
 
 	// Open endpoints
 	r.HandleFunc("/function/{name:[-a-zA-Z_0-9]+}", handlers.FunctionProxy)
@@ -87,5 +91,27 @@ func Serve(handlers *types.FaaSHandlers, config *types.FaaSConfig) {
 		Handler:        r,
 	}
 
-	log.Fatal(s.ListenAndServe())
+	logRouter := mux.NewRouter()
+	logRouter.HandleFunc("/system/logs", handlers.LogHandler).Methods(http.MethodGet, http.MethodPost)
+	logServer := &http.Server{
+		Addr:        fmt.Sprintf(":%d", tcpPort+1),
+		ReadTimeout: readTimeout,
+		// We have explicitly disabled the write timeout for the log server so that
+		// it can do http chunked streams
+		// WriteTimeout:   writeTimeout,
+		MaxHeaderBytes: http.DefaultMaxHeaderBytes, // 1MB - can be overridden by setting Server.MaxHeaderBytes.
+		Handler:        logRouter,
+	}
+
+	go logServer.ListenAndServe()
+	go s.ListenAndServe()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	// Waiting for SIGINT (pkill -2)
+	<-stop
+	log.Println("stop signal recieved")
+	log.Println(logServer.Shutdown(context.Background()))
+	log.Fatal(s.Shutdown(context.Background()))
 }
