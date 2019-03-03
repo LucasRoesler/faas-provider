@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -119,6 +121,144 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 	}
 }
 
+// NewHijackLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
+func NewHijackLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			defer r.Body.Close()
+		}
+
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			log.Println("LogHandler: response is not a Hijacker, required for streaming response")
+			http.NotFound(w, r)
+			return
+		}
+
+		logRequest, err := parseRequest(r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			httputils.WriteError(w, http.StatusUnprocessableEntity, "could not parse the log request")
+			return
+		}
+
+		ctx, cancelQuery := context.WithCancel(r.Context())
+		defer cancelQuery() // allows us to cancel the query stream by simply returning from the handler
+
+		messages, err := requestor.Query(ctx, logRequest)
+		if err != nil {
+			// add smarter error handling here?
+			httputils.WriteError(w, http.StatusInternalServerError, "function log request failed")
+			return
+		}
+
+		// Send the initial headers saying we're gonna stream the response.
+		w.Header().Set(http.CanonicalHeaderKey("Connection"), "Keep-Alive")
+		w.Header().Set(http.CanonicalHeaderKey("Transfer-Encoding"), "chunked")
+		w.Header().Set(http.CanonicalHeaderKey("Content-Type"), "application/x-ndjson")
+		w.WriteHeader(http.StatusOK)
+
+		conn, buf, err := hijacker.Hijack()
+		if err != nil {
+			log.Println("LogHandler: failed to hijack connection for streaming response")
+			return
+		}
+		defer conn.Close()
+		conn.SetWriteDeadline(time.Time{}) // allow arbitrary time between log writes
+		buf.Flush()                        // will write the headers and the initial 200 response
+
+		// using NewChunkedWriter ensures that data is written with the correct chunked format,
+		// e.g. line endings, it will not ensure proper closing trailers
+		jsonEncoder := json.NewEncoder(httputil.NewChunkedWriter(buf))
+
+		defer func() {
+			// try to write the required closing newliens for chunked encoding
+			// see the RFC https://tools.ietf.org/html/rfc7230#section-4.1 specification of
+			// the last chunk `last-chunk     = 1*("0") [ chunk-ext ] CRLF`
+			buf.WriteString("0\r\n\r\n")
+			buf.Flush()
+		}()
+
+		if logRequest.Limit > 0 {
+			log.Printf("LogHandler: watch for and stream `%d` log messages\n", logRequest.Limit)
+		}
+
+		sent := 0 // used to enforce number of logs limit
+
+		closed := closeNotify(ctx, conn)
+		msgFilter := newFilter(logRequest)
+
+		for messages != nil {
+			select {
+			case <-closed:
+				log.Println("LogHandler: connection closed")
+				return
+			case <-ctx.Done():
+				log.Println("LogHandler: context done")
+				return
+			case msg, ok := <-messages:
+				if !ok {
+					log.Println("LogHandler: end of log stream")
+					messages = nil
+					return
+				}
+
+				if !msgFilter(&msg) {
+					continue
+				}
+				// serialize and write the msg to the http ResponseWriter
+				err := jsonEncoder.Encode(msg)
+				if err != nil {
+					// can't actually write the status header here because we already sent a 200
+
+					// we can:
+					// 1. json serialize an error and return that
+					// 2. use Trailers to send error information, this is expected behavior for
+					//    chunked encoding, but probably hard for the client to parse
+					log.Printf("LogHandler: failed to serialize log message: '%s'\n", msg.String())
+					log.Println(err.Error())
+					// write json error message here ?
+					jsonEncoder.Encode(Message{Text: "failed to serialize log message"})
+					return
+				}
+				// actually send the log line to the client
+				buf.Flush()
+
+				// only track logs sent _if_ we need to
+				if logRequest.Limit > 0 {
+					sent++
+					if sent >= logRequest.Limit {
+						log.Printf("LogHandler: reached message limit '%d'\n", logRequest.Limit)
+						return
+					}
+				}
+			}
+		}
+
+		return
+	}
+}
+
+// closeNotify will watch the connection and notify when then connection is closed
+func closeNotify(ctx context.Context, c net.Conn) <-chan error {
+	notify := make(chan error)
+
+	go func() {
+		buf := make([]byte, 1024)
+		n, err := c.Read(buf) // blocks until non-zero read or error
+		if err != nil {
+			log.Printf("LogHandler: test connection: %s\n", err)
+			notify <- err
+			return
+		}
+		if n > 0 {
+			log.Printf("LogHandler: unexpected data: %s\n", buf[:n])
+			return
+		}
+	}()
+	return notify
+}
+
 // NewWSLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
 func NewWSLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +268,7 @@ func NewWSLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Println("LogHandler: unable to upgrade response to a websocket")
+			log.Printf("LogHandler: unable to upgrade response to a websocket: %s\n", err.Error())
 			http.NotFound(w, r)
 			return
 		}
