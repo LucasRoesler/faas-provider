@@ -241,10 +241,10 @@ func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 
 // closeNotify will watch the connection and notify when then connection is closed
 func closeNotify(ctx context.Context, c net.Conn) <-chan error {
-	notify := make(chan error)
+	notify := make(chan error, 1)
 
 	go func() {
-		buf := make([]byte, 1024)
+		buf := make([]byte, 1)
 		n, err := c.Read(buf) // blocks until non-zero read or error
 		if err != nil {
 			log.Printf("LogHandler: test connection: %s\n", err)
