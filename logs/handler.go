@@ -407,6 +407,9 @@ func newFilter(r Request) func(m *Message) bool {
 	}
 
 	return func(m *Message) bool {
+		if r.Invert {
+			return matchesInstance(r.Instance, m) && !matchesPattern(pattern, m)
+		}
 		return matchesInstance(r.Instance, m) && matchesPattern(pattern, m)
 	}
 }
