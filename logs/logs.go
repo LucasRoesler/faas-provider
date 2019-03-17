@@ -8,13 +8,6 @@ import (
 )
 
 // Request is the query to return the function logs.
-//
-// Notes:
-// Pattern matching could be implemented in the OF Provider as standardized logic and does not
-// need to be implemented in the specific orchestration provider, since not all providers may be
-// able to support this natively.  Alternatively, we provide a simple server side filter implementation
-// and the interface for the Logs handlers can allow the provider to configure/customize that implementation
-// similar to provider implementing the `resolver` in the proxy handler
 type Request struct {
 	// Name is the function name and is required
 	Name string `json:"name"`

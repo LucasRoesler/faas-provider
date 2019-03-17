@@ -245,7 +245,13 @@ func closeNotify(ctx context.Context, c net.Conn) <-chan error {
 
 	go func() {
 		buf := make([]byte, 1)
-		n, err := c.Read(buf) // blocks until non-zero read or error
+		// blocks until non-zero read or error.  From the fd.Read docs:
+		// If the caller wanted a zero byte read, return immediately
+		// without trying (but after acquiring the readLock).
+		// Otherwise syscall.Read returns 0, nil which looks like
+		// io.EOF.
+		// It is important that `buf` is allocated a non-zero size
+		n, err := c.Read(buf)
 		if err != nil {
 			log.Printf("LogHandler: test connection: %s\n", err)
 			notify <- err
