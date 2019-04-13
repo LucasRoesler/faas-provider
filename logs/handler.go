@@ -45,7 +45,7 @@ func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 		logRequest, err := parseRequest(r)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			httputils.WriteError(w, http.StatusUnprocessableEntity, "could not parse the log request")
+			httputils.ErrorF(w, http.StatusUnprocessableEntity, "could not parse the log request")
 			return
 		}
 
@@ -54,7 +54,7 @@ func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 		messages, err := requestor.Query(ctx, logRequest)
 		if err != nil {
 			// add smarter error handling here
-			httputils.WriteError(w, http.StatusInternalServerError, "function log request failed")
+			httputils.ErrorF(w, http.StatusInternalServerError, "function log request failed")
 			return
 		}
 
@@ -134,7 +134,7 @@ func NewHijackLogHandlerFunc(requestor Requester) http.HandlerFunc {
 		logRequest, err := parseRequest(r)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			httputils.WriteError(w, http.StatusUnprocessableEntity, "could not parse the log request")
+			httputils.ErrorF(w, http.StatusUnprocessableEntity, "could not parse the log request")
 			return
 		}
 
@@ -144,7 +144,7 @@ func NewHijackLogHandlerFunc(requestor Requester) http.HandlerFunc {
 		messages, err := requestor.Query(ctx, logRequest)
 		if err != nil {
 			// add smarter error handling here?
-			httputils.WriteError(w, http.StatusInternalServerError, "function log request failed")
+			httputils.ErrorF(w, http.StatusInternalServerError, "function log request failed")
 			return
 		}
 
