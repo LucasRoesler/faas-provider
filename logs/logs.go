@@ -21,8 +21,8 @@ type Request struct {
 	Follow bool `json:"follow"`
 	// Pattern is an optional regexp value to filter the log messages
 	Pattern *string `json:"pattern"`
-	// Invert allows you to control if the Pattern should be matched or negated
-	Invert bool `json:"invert"`
+	// InvertPattern allows you to control if the Pattern should be matched or negated
+	InvertPattern bool `json:"invert"`
 }
 
 // String implements that Stringer interface and prints the log Request in a consistent way that
@@ -32,7 +32,7 @@ func (r Request) String() string {
 	if r.Pattern != nil {
 		pattern = *r.Pattern
 	}
-	return fmt.Sprintf("name:%s instance:%s since:%v limit:%d follow:%v pattern:%v invert:%v", r.Name, r.Instance, r.Since, r.Limit, r.Follow, pattern, r.Invert)
+	return fmt.Sprintf("name:%s instance:%s since:%v limit:%d follow:%v pattern:%v invert:%v", r.Name, r.Instance, r.Since, r.Limit, r.Follow, pattern, r.InvertPattern)
 }
 
 // Message is a specific log message from a function container log stream

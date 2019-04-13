@@ -277,7 +277,7 @@ func parseRequest(r *http.Request) (logRequest Request, err error) {
 		}
 		// ignore error because it will default to false if we can't parse it
 		logRequest.Follow, _ = strconv.ParseBool(getValue(query, "follow"))
-		logRequest.Invert, _ = strconv.ParseBool(getValue(query, "invert"))
+		logRequest.InvertPattern, _ = strconv.ParseBool(getValue(query, "invert"))
 
 		sinceStr := getValue(query, "since")
 		if sinceStr != "" {
@@ -325,7 +325,7 @@ func newFilter(r Request) func(m *Message) bool {
 	}
 
 	return func(m *Message) bool {
-		if r.Invert {
+		if r.InvertPattern {
 			return matchesInstance(r.Instance, m) && !matchesPattern(pattern, m)
 		}
 		return matchesInstance(r.Instance, m) && matchesPattern(pattern, m)
