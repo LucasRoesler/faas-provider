@@ -25,7 +25,7 @@ func Test_logsHandlerDoesNotLeakGoroutinesWhenProviderClosesStream(t *testing.T)
 	json.NewEncoder(&expected).Encode(msgs[0])
 	json.NewEncoder(&expected).Encode(msgs[1])
 
-	querier := newFakeQueryRequestor(msgs, nil)
+	querier := newFakeQueryRequester(msgs, nil)
 	logHandler := NewLogHandlerFunc(querier)
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
@@ -56,7 +56,7 @@ func Test_logsHandlerDoesNotLeakGoroutinesWhenClientClosesConnection(t *testing.
 		Message{Name: "funcFoo", Text: "msg 1"},
 	}
 
-	querier := newFakeQueryRequestor(msgs, nil)
+	querier := newFakeQueryRequester(msgs, nil)
 	logHandler := NewLogHandlerFunc(querier)
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
@@ -96,7 +96,7 @@ func Test_logsHandlerLimitValueIsEnforced(t *testing.T) {
 	json.NewEncoder(&expected).Encode(msgs[1])
 	json.NewEncoder(&expected).Encode(msgs[2])
 
-	querier := newFakeQueryRequestor(msgs, nil)
+	querier := newFakeQueryRequester(msgs, nil)
 	logHandler := NewLogHandlerFunc(querier)
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
@@ -132,7 +132,7 @@ func Test_logsHandlerFilterPatternReturnsExpectedLogs(t *testing.T) {
 	var expected bytes.Buffer
 	json.NewEncoder(&expected).Encode(msgs[1])
 
-	querier := newFakeQueryRequestor(msgs, nil)
+	querier := newFakeQueryRequester(msgs, nil)
 	logHandler := NewLogHandlerFunc(querier)
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
@@ -170,7 +170,7 @@ func Test_logsHandlerFilterInvertedPatternReturnsExpectedLogs(t *testing.T) {
 	json.NewEncoder(&expected).Encode(msgs[2])
 	json.NewEncoder(&expected).Encode(msgs[3])
 
-	querier := newFakeQueryRequestor(msgs, nil)
+	querier := newFakeQueryRequester(msgs, nil)
 	logHandler := NewLogHandlerFunc(querier)
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
@@ -207,7 +207,7 @@ func Test_logsHandlerFilterByInstance(t *testing.T) {
 	json.NewEncoder(&expected).Encode(msgs[0])
 	json.NewEncoder(&expected).Encode(msgs[3])
 
-	querier := newFakeQueryRequestor(msgs, nil)
+	querier := newFakeQueryRequester(msgs, nil)
 	logHandler := NewLogHandlerFunc(querier)
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
@@ -309,18 +309,18 @@ func equalError(t *testing.T, expected string, actual error) {
 	}
 }
 
-type fakeQueryRequestor struct {
+type fakeQueryRequester struct {
 	Logs   []Message
 	err    error
 	stream chan Message
 }
 
-func (r fakeQueryRequestor) Close() {
+func (r fakeQueryRequester) Close() {
 	close(r.stream)
 	r.stream = nil
 }
 
-func (r fakeQueryRequestor) Query(context.Context, Request) (<-chan Message, error) {
+func (r fakeQueryRequester) Query(context.Context, Request) (<-chan Message, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -332,8 +332,8 @@ func (r fakeQueryRequestor) Query(context.Context, Request) (<-chan Message, err
 	return r.stream, nil
 }
 
-func newFakeQueryRequestor(l []Message, err error) fakeQueryRequestor {
-	return fakeQueryRequestor{
+func newFakeQueryRequester(l []Message, err error) fakeQueryRequester {
+	return fakeQueryRequester{
 		Logs:   l,
 		err:    err,
 		stream: make(chan Message, len(l)),

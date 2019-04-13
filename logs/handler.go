@@ -19,15 +19,15 @@ import (
 
 var upgrader = websocket.Upgrader{} // use default options
 
-// Requestor submits queries the logging system.
+// Requester submits queries the logging system.
 // This will be passed to the log handler constructor.
-type Requestor interface {
+type Requester interface {
 	// Query submits a log request to the actual logging system.
 	Query(context.Context, Request) (<-chan Message, error)
 }
 
 // NewSimpleLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
-func NewSimpleLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+func NewSimpleLogHandlerFunc(requestor Requester) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -122,7 +122,7 @@ func NewSimpleLogHandlerFunc(requestor Requestor) http.HandlerFunc {
 }
 
 // NewLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
-func NewLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -266,7 +266,7 @@ func closeNotify(ctx context.Context, c net.Conn) <-chan error {
 }
 
 // NewWSLogHandlerFunc creates and http HandlerFunc from the supplied log Requestor.
-func NewWSLogHandlerFunc(requestor Requestor) http.HandlerFunc {
+func NewWSLogHandlerFunc(requestor Requester) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
