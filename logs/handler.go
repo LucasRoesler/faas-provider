@@ -23,6 +23,11 @@ type Requester interface {
 }
 
 // NewLogHandlerFunc creates an http HandlerFunc from the supplied log Requestor.
+//
+// The resulting handler is responsible for parsing the http.Request into a logs Request and
+// and then streaming the results over http. The handler will also apply the Pattern filter and the Limit.
+// So these do not need to be implemented in the Requester, although it is recommended to use these in your
+// query implementation if the underlying log system natively supports them.
 func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
@@ -118,6 +123,8 @@ func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 }
 
 // NewHijackLogHandlerFunc creates an http HandlerFunc from the supplied log Requestor.
+//
+// Deprecated: This remains in the package for reference purposes, providers should instead use NewLogHandlerFunc
 func NewHijackLogHandlerFunc(requestor Requester) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {

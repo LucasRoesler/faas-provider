@@ -1,5 +1,10 @@
 // Package logs provides the standard interface and handler for OpenFaaS providers to expose function logs.
 //
+// The package defines the Requester interface that OpenFaaS providers should implement and then expose using
+// the predefined NewLogHandlerFunc. See the example folder for a minimal log provider implementation.
+//
+// The Requester is where the actual specific logic for connecting to and querying the log system should be implemented.
+//
 package logs
 
 import (
