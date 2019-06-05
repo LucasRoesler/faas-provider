@@ -101,118 +101,7 @@ func Test_logsHandlerLimitValueIsEnforced(t *testing.T) {
 	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
 	defer testSrv.Close()
 
-	resp, err := http.Get(testSrv.URL + "?name=funcFoo&limit=3")
-	if err != nil {
-		t.Fatalf("unexpected error sending log request: %s", err)
-	}
-
-	querier.Close()
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("unexpected error reading log response: %s", err)
-	}
-
-	if string(body) != expected.String() {
-		t.Fatalf("expected log message %s, got: %s", expected.String(), body)
-	}
-}
-
-func Test_logsHandlerFilterPatternReturnsExpectedLogs(t *testing.T) {
-	defer goleak.VerifyNoLeaks(t)
-
-	msgs := []Message{
-		Message{Name: "funcFoo", Text: "msg 0"},
-		Message{Name: "funcFoo", Text: "msg 1"},
-		Message{Name: "funcFoo", Text: "msg 2"},
-		Message{Name: "funcFoo", Text: "msg 3"},
-	}
-
-	var expected bytes.Buffer
-	json.NewEncoder(&expected).Encode(msgs[1])
-
-	querier := newFakeQueryRequester(msgs, nil)
-	logHandler := NewLogHandlerFunc(querier)
-	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
-	defer testSrv.Close()
-
-	resp, err := http.Get(testSrv.URL + "?name=funcFoo&pattern=msg%201")
-	if err != nil {
-		t.Fatalf("unexpected error sending log request: %s", err)
-	}
-
-	querier.Close()
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("unexpected error reading log response: %s", err)
-	}
-
-	if string(body) != expected.String() {
-		t.Fatalf("expected log message %s, got: %s", expected.String(), body)
-	}
-}
-
-func Test_logsHandlerFilterInvertedPatternReturnsExpectedLogs(t *testing.T) {
-	defer goleak.VerifyNoLeaks(t)
-
-	msgs := []Message{
-		Message{Name: "funcFoo", Text: "msg 0"},
-		Message{Name: "funcFoo", Text: "msg 1"},
-		Message{Name: "funcFoo", Text: "msg 2"},
-		Message{Name: "funcFoo", Text: "msg 3"},
-	}
-
-	var expected bytes.Buffer
-	json.NewEncoder(&expected).Encode(msgs[0])
-	json.NewEncoder(&expected).Encode(msgs[2])
-	json.NewEncoder(&expected).Encode(msgs[3])
-
-	querier := newFakeQueryRequester(msgs, nil)
-	logHandler := NewLogHandlerFunc(querier)
-	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
-	defer testSrv.Close()
-
-	resp, err := http.Get(testSrv.URL + "?name=funcFoo&pattern=msg%201&invert=true")
-	if err != nil {
-		t.Fatalf("unexpected error sending log request: %s", err)
-	}
-
-	querier.Close()
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("unexpected error reading log response: %s", err)
-	}
-
-	if string(body) != expected.String() {
-		t.Fatalf("expected log message %s, got: %s", expected.String(), body)
-	}
-}
-
-func Test_logsHandlerFilterByInstance(t *testing.T) {
-	defer goleak.VerifyNoLeaks(t)
-
-	msgs := []Message{
-		Message{Name: "funcFoo", Instance: "foo.1", Text: "msg 0"},
-		Message{Name: "funcFoo", Instance: "foo.2", Text: "msg 1"},
-		Message{Name: "funcFoo", Instance: "foo.3", Text: "msg 2"},
-		Message{Name: "funcFoo", Instance: "foo.1", Text: "msg 3"},
-	}
-
-	var expected bytes.Buffer
-	json.NewEncoder(&expected).Encode(msgs[0])
-	json.NewEncoder(&expected).Encode(msgs[3])
-
-	querier := newFakeQueryRequester(msgs, nil)
-	logHandler := NewLogHandlerFunc(querier)
-	testSrv := httptest.NewServer(http.HandlerFunc(logHandler))
-	defer testSrv.Close()
-
-	resp, err := http.Get(testSrv.URL + "?name=funcFoo&instance=foo.1")
+	resp, err := http.Get(testSrv.URL + "?name=funcFoo&tail=3")
 	if err != nil {
 		t.Fatalf("unexpected error sending log request: %s", err)
 	}
@@ -269,7 +158,7 @@ func Test_GETRequestParsing(t *testing.T) {
 			expectedRequest: Request{
 				Name:   "foobar",
 				Since:  &sinceTime,
-				Limit:  5,
+				Tail:   5,
 				Follow: true,
 			},
 		},

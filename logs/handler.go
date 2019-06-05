@@ -65,8 +65,8 @@ func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 		sent := 0
 		jsonEncoder := json.NewEncoder(w)
 
-		if logRequest.Limit > 0 {
-			log.Printf("LogHandler: watch for and stream `%d` log messages\n", logRequest.Limit)
+		if logRequest.Tail > 0 {
+			log.Printf("LogHandler: watch for and stream `%d` log messages\n", logRequest.Tail)
 		}
 
 		for messages != nil {
@@ -95,10 +95,10 @@ func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 
 				flusher.Flush()
 
-				if logRequest.Limit > 0 {
+				if logRequest.Tail > 0 {
 					sent++
-					if sent >= logRequest.Limit {
-						log.Printf("LogHandler: reached message tail '%d'\n", logRequest.Limit)
+					if sent >= logRequest.Tail {
+						log.Printf("LogHandler: reached message tail '%d'\n", logRequest.Tail)
 						return
 					}
 				}
@@ -114,9 +114,9 @@ func parseRequest(r *http.Request) (logRequest Request, err error) {
 	query := r.URL.Query()
 	logRequest.Name = getValue(query, "name")
 	logRequest.Instance = getValue(query, "instance")
-	limitStr := getValue(query, "limit")
-	if limitStr != "" {
-		logRequest.Limit, err = strconv.Atoi(limitStr)
+	tailStr := getValue(query, "tail")
+	if tailStr != "" {
+		logRequest.Tail, err = strconv.Atoi(tailStr)
 		if err != nil {
 			return logRequest, err
 		}

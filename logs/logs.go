@@ -20,8 +20,8 @@ type Request struct {
 	Instance string `json:"instance"`
 	// Since is the optional datetime value to start the logs from
 	Since *time.Time `json:"since"`
-	// Limit sets the maximum number of log messages to return, <=0 means unlimited
-	Limit int `json:"limit"`
+	// Tail sets the maximum number of log messages to return, <=0 means unlimited
+	Tail int `json:"tail"`
 	// Follow is allows the user to request a stream of logs until the timeout
 	Follow bool `json:"follow"`
 }
@@ -29,7 +29,7 @@ type Request struct {
 // String implements that Stringer interface and prints the log Request in a consistent way that
 // allows you to safely compare if two requests have the same value.
 func (r Request) String() string {
-	return fmt.Sprintf("name:%s instance:%s since:%v limit:%d follow:%v", r.Name, r.Instance, r.Since, r.Limit, r.Follow)
+	return fmt.Sprintf("name:%s instance:%s since:%v tail:%d follow:%v", r.Name, r.Instance, r.Since, r.Tail, r.Follow)
 }
 
 // Message is a specific log message from a function container log stream
