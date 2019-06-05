@@ -22,22 +22,14 @@ type Request struct {
 	Since *time.Time `json:"since"`
 	// Limit sets the maximum number of log messages to return, <=0 means unlimited
 	Limit int `json:"limit"`
-	// Follow is allows the user to request a stream of logs
+	// Follow is allows the user to request a stream of logs until the timeout
 	Follow bool `json:"follow"`
-	// Pattern is an optional regexp value to filter the log messages
-	Pattern *string `json:"pattern"`
-	// InvertPattern allows you to control if the Pattern should be matched or negated
-	InvertPattern bool `json:"invert"`
 }
 
 // String implements that Stringer interface and prints the log Request in a consistent way that
 // allows you to safely compare if two requests have the same value.
 func (r Request) String() string {
-	pattern := ""
-	if r.Pattern != nil {
-		pattern = *r.Pattern
-	}
-	return fmt.Sprintf("name:%s instance:%s since:%v limit:%d follow:%v pattern:%v invert:%v", r.Name, r.Instance, r.Since, r.Limit, r.Follow, pattern, r.InvertPattern)
+	return fmt.Sprintf("name:%s instance:%s since:%v limit:%d follow:%v", r.Name, r.Instance, r.Since, r.Limit, r.Follow)
 }
 
 // Message is a specific log message from a function container log stream

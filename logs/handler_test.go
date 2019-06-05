@@ -232,7 +232,6 @@ func Test_logsHandlerFilterByInstance(t *testing.T) {
 
 func Test_GETRequestParsing(t *testing.T) {
 	sinceTime, _ := time.Parse(time.RFC3339, "2019-02-16T09:10:06+00:00")
-	testPattern := "^200.*"
 	scenarios := []struct {
 		name            string
 		rawQueryStr     string
@@ -265,16 +264,13 @@ func Test_GETRequestParsing(t *testing.T) {
 		},
 		{
 			name:        "valid request with every parameter",
-			rawQueryStr: "name=foobar&since=2019-02-16T09%3A10%3A06%2B00%3A00&instance=abc123&limit=5&follow=true&pattern=%5E200.%2A&invert=true",
+			rawQueryStr: "name=foobar&since=2019-02-16T09%3A10%3A06%2B00%3A00&tail=5&follow=true",
 			err:         "",
 			expectedRequest: Request{
-				Name:          "foobar",
-				Instance:      "abc123",
-				Since:         &sinceTime,
-				Pattern:       &testPattern,
-				Limit:         5,
-				Follow:        true,
-				InvertPattern: true,
+				Name:   "foobar",
+				Since:  &sinceTime,
+				Limit:  5,
+				Follow: true,
 			},
 		},
 	}
