@@ -42,6 +42,6 @@ func (s staticLogRequestor) Query(ctx context.Context, r logs.Request) (<-chan l
 
 func main() {
 	requestor := staticLogRequestor{logs: []string{"msg1", "msg2", "something interesting"}}
-	http.HandleFunc("/system/logs", logs.NewLogHandlerFunc(requestor))
+	http.HandleFunc("/system/logs", logs.NewLogHandlerFunc(requestor, 10*time.Second))
 	http.ListenAndServe(":80", nil)
 }

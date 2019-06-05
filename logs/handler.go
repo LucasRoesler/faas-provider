@@ -20,7 +20,7 @@ type Requester interface {
 }
 
 // NewLogHandlerFunc creates an http HandlerFunc from the supplied log Requestor.
-func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
+func NewLogHandlerFunc(requestor Requester, timeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -46,7 +46,7 @@ func NewLogHandlerFunc(requestor Requester) http.HandlerFunc {
 			return
 		}
 
-		ctx, cancelQuery := context.WithCancel(r.Context())
+		ctx, cancelQuery := context.WithTimeout(r.Context(), timeout)
 		defer cancelQuery()
 		messages, err := requestor.Query(ctx, logRequest)
 		if err != nil {
